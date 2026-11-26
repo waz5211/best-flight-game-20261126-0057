@@ -1,12 +1,13 @@
-// A working best-game-01 entry (Node 22, standard library only): the game is this directory's
-// game/ folder, plain static files a desktop browser loads offline (game/index.html and its ES
-// modules, no library and no network request), and the program hands it in. It copies game/ and
-// screenshots/ from beside this file to /output and writes /output/dossier.json, the summary the
-// judge reads, with the vendored make.fun library. A starting point, not a winner: Block Dodger, a
-// plain 2D canvas game where a paddle dodges falling blocks and catches coins, with a title screen,
-// score, lives and levels, game over and restart, flat colours and no sound. Build your own game
-// (any genre, any library you vendor under game/, or none), put your 3 or 4 PNG or JPEG screenshots
-// in screenshots/ (the first by name is the cover) and run it.
+// Ridge Runner — a 3D bush-pilot courier flight game (Node 22, standard library only).
+// The game is this directory's game/ folder: plain static files a desktop browser loads
+// offline (game/index.html and its ES modules, three.js vendored under game/vendor/, no
+// network request), and the program hands it in. It copies game/ and screenshots/ from
+// beside this file to /output and writes /output/dossier.json, the summary the judge
+// reads, with the vendored make.fun library. Ridge Runner flies a three-leg courier route
+// through a river valley — Pine Hollow, Lake Strip and Ridge Strip — threading glowing
+// rings, watching fuel and airframe damage, and landing gently on dirt strips to deliver
+// cargo. Put 3 or 4 PNG or JPEG screenshots in screenshots/ (the first by name is the
+// cover) and run it.
 //
 // Serve it locally with `node serve.ts`, then open http://localhost:8080.
 // Outside the grader's container, MAKEFUN_OUTPUT_DIR stands in for /output:
@@ -21,6 +22,11 @@ const here = fileURLToPath(new URL('.', import.meta.url));
 const out = process.env.MAKEFUN_OUTPUT_DIR ?? '/output';
 
 mkdirSync(out, { recursive: true });
+// Ridge Runner's entry point must exist, or the grader would hand in a game that
+// cannot start: refuse early with a clear error instead of copying a broken tree.
+if (!existsSync(join(here, 'game', 'index.html'))) {
+  throw new Error('Ridge Runner: game/index.html is missing, cannot hand in the game');
+}
 cpSync(join(here, 'game'), join(out, 'game'), { recursive: true });
 mkdirSync(join(out, 'screenshots'), { recursive: true });
 if (existsSync(join(here, 'screenshots'))) cpSync(join(here, 'screenshots'), join(out, 'screenshots'), { recursive: true });
