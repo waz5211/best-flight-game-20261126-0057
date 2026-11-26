@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ridge Runner — Bush Pilot Courier</title>
+<style>
+  html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1622;
+    font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif; }
+  #game { position: fixed; inset: 0; width: 100%; height: 100%; display: block; touch-action: none; }
+  #hud { position: fixed; inset: 0; pointer-events: none; color: #eaf6ff; z-index: 5;
+    text-shadow: 0 1px 3px rgba(0,0,0,.8); }
+  .panel { position: absolute; background: rgba(8, 20, 32, .55); border: 1px solid rgba(160, 220, 255, .35);
+    border-radius: 8px; padding: 8px 12px; backdrop-filter: blur(2px); }
+  .label { font-size: 10px; letter-spacing: .14em; color: #9fd8ff; text-transform: uppercase; }
+  .big { font-size: 26px; font-weight: 700; line-height: 1.05; font-variant-numeric: tabular-nums; }
+  .unit { font-size: 11px; color: #bfe6ff; font-weight: 400; }
+  #panel-flight { top: 14px; left: 14px; display: flex; gap: 18px; }
+  #panel-status { top: 14px; right: 14px; width: 210px; }
+  #panel-status .row { display: flex; justify-content: space-between; margin: 2px 0; font-size: 15px; font-weight: 600; }
+  .bar { height: 8px; background: rgba(255,255,255,.18); border-radius: 4px; overflow: hidden; margin: 3px 0 7px; }
+  .bar > div { height: 100%; border-radius: 4px; }
+  #fuel-fill { background: #37c978; width: 100%; }
+  #dmg-fill { background: #ffb02e; width: 0%; }
+  #thr-fill { background: #4db2ff; width: 0%; }
+  #objective { top: 14px; left: 50%; transform: translateX(-50%); text-align: center; min-width: 320px; }
+  #objective .obj { font-size: 15px; font-weight: 600; margin-top: 2px; }
+  #objective .sub { font-size: 12px; color: #bfe6ff; margin-top: 2px; }
+  #instruments { position: absolute; left: 50%; bottom: 16px; transform: translateX(-50%);
+    display: flex; gap: 14px; align-items: flex-end; }
+  #horizon { width: 148px; height: 148px; border-radius: 50%; border: 3px solid rgba(160,220,255,.6);
+    background: #0b1622; box-shadow: 0 0 0 4px rgba(8,20,32,.55); }
+  #compass { width: 260px; height: 52px; border-radius: 8px; border: 1px solid rgba(160,220,255,.35);
+    background: rgba(8,20,32,.55); }
+  #throttle-box { width: 120px; text-align: center; position: static; }
+  #message { position: absolute; top: 34%; left: 50%; transform: translate(-50%, -50%); text-align: center;
+    font-size: 30px; font-weight: 800; color: #fff; letter-spacing: .02em; display: none; }
+  #message small { display: block; font-size: 16px; font-weight: 500; color: #cfeaff; margin-top: 6px; }
+  #vignette { position: fixed; inset: 0; pointer-events: none; z-index: 4;
+    background: radial-gradient(ellipse at center, transparent 62%, rgba(2,8,16,.45) 100%); }
+  .overlay { position: fixed; inset: 0; z-index: 10; display: flex; align-items: center; justify-content: center;
+    background: rgba(4, 12, 22, .62); color: #eaf6ff; }
+  .card { max-width: 620px; margin: 20px; padding: 28px 34px; background: rgba(8, 22, 36, .92);
+    border: 1px solid rgba(160, 220, 255, .4); border-radius: 14px; box-shadow: 0 18px 60px rgba(0,0,0,.5); }
+  .card h1 { margin: 0 0 4px; font-size: 40px; letter-spacing: .01em; }
+  .card h1 span { color: #ffb02e; }
+  .card h2 { margin: 0 0 10px; font-size: 26px; }
+  .card p { font-size: 15px; line-height: 1.55; color: #cfe6f7; margin: 8px 0; }
+  .card .keys { font-size: 13px; line-height: 1.9; color: #bfe6ff; }
+  .card .keys b { color: #fff; background: rgba(255,255,255,.12); border-radius: 4px; padding: 1px 7px;
+    font-weight: 600; margin-right: 2px; }
+  .btn { pointer-events: auto; cursor: pointer; display: inline-block; margin-top: 14px; padding: 12px 26px;
+    font-size: 17px; font-weight: 700; color: #06202f; background: #ffb02e; border: 0; border-radius: 9px; }
+  .btn:hover { background: #ffc44d; }
+  .btn.ghost { background: transparent; color: #bfe6ff; border: 1px solid rgba(160,220,255,.5); margin-left: 10px; }
+  .hidden { display: none !important; }
+  #status { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  #crosshair { position: absolute; left: 50%; top: 50%; width: 10px; height: 10px; margin: -5px 0 0 -5px;
+    border: 2px solid rgba(255,255,255,.75); border-radius: 50%; }
+</style>
+</head>
+<body>
+<canvas id="game" aria-label="Ridge Runner: a 3D bush pilot courier flight game"></canvas>
+<div id="vignette"></div>
+<div id="hud">
+  <div id="crosshair"></div>
+  <div id="panel-flight" class="panel">
+    <div><div class="label">Altitude</div><div class="big"><span id="alt">0</span> <span class="unit">ft</span></div><div class="label" id="agl">AGL 0 ft</div></div>
+    <div><div class="label">Airspeed</div><div class="big"><span id="spd">0</span> <span class="unit">kt</span></div><div class="label" id="vspeed">V/S 0 fpm</div></div>
+    <div><div class="label">Heading</div><div class="big"><span id="hdg">000</span>&deg;</div><div class="label" id="hdg-name">N</div></div>
+  </div>
+  <div id="panel-status" class="panel">
+    <div class="row"><span>Score</span><span id="score">0</span></div>
+    <div class="row"><span>Time</span><span id="clock">00:00</span></div>
+    <div class="label">Fuel</div><div class="bar"><div id="fuel-fill"></div></div>
+    <div class="label">Airframe</div><div class="bar"><div id="dmg-fill"></div></div>
+    <div class="label">Throttle <span id="thr-pct" style="color:#fff">0%</span></div><div class="bar"><div id="thr-fill"></div></div>
+  </div>
+  <div id="objective" class="panel">
+    <div class="label" id="leg-label">Leg 1 of 3</div>
+    <div class="obj" id="objective-text">Take off and fly the rings</div>
+    <div class="sub" id="objective-sub">Ring 0 of 3 &middot; Deliver to Lake Strip</div>
+  </div>
+  <div id="instruments">
+    <canvas id="horizon" width="296" height="296"></canvas>
+    <canvas id="compass" width="520" height="104"></canvas>
+    <div id="throttle-box" class="panel"><div class="label">Flaps</div><div class="big" id="flaps">UP</div>
+      <div class="label" style="margin-top:6px">Gear</div><div class="big" id="gear">DOWN</div></div>
+  </div>
+  <div id="message"></div>
+</div>
+
+<div id="screen-title" class="overlay">
+  <div class="card">
+    <h1>RIDGE <span>RUNNER</span></h1>
+    <p><b>Bush pilot courier.</b> You fly a battered little cargo plane out of Pine Hollow strip,
+    threading glowing survey rings through the valley, and putting her down on remote dirt strips
+    to drop the mail. Fuel is short, the airframe is old, and the mountains do not forgive.</p>
+    <p>Fly all three legs — rings, then a landing at each strip — to finish the route. Land gently
+    on a runway to refuel and patch the airframe. Fly through every ring for the full score.</p>
+    <div class="keys">
+      <b>W</b>/<b>S</b> throttle &nbsp; <b>&uarr;</b>/<b>&darr;</b> pitch &nbsp; <b>&larr;</b>/<b>&rarr;</b> bank &nbsp;
+      <b>A</b>/<b>D</b> rudder<br>
+      <b>F</b> flaps &nbsp; <b>B</b> brakes &nbsp; <b>G</b> gear &nbsp; <b>Mouse drag</b> look around<br>
+      <b>P</b> pause &nbsp; <b>R</b> restart &nbsp; <b>M</b> sound
+    </div>
+    <button class="btn" id="btn-start">Start flying</button>
+    <button class="btn ghost" id="btn-how">How to fly</button>
+    <p id="how" class="hidden" style="font-size:13px">Hold <b>W</b> to spool the engine up, steer with the
+    rudder on the ground, and pull back (<b>&darr;</b>) once you pass 60 kt to lift off. Keep the ball
+    centred: bank with <b>&larr;</b>/<b>&rarr;</b> and the nose follows. Watch fuel — a dead-stick landing
+    on a strip still counts. Touch down slow, nose up a touch, on the runway, and she will forgive you.</p>
+  </div>
+</div>
+
+<div id="screen-pause" class="overlay hidden">
+  <div class="card"><h2>Paused</h2><p>The valley waits. Fuel does not burn while you are paused.</p>
+  <button class="btn" id="btn-resume">Resume</button>
+  <button class="btn ghost" id="btn-restart-pause">Restart route</button></div>
+</div>
+
+<div id="screen-over" class="overlay hidden">
+  <div class="card"><h2 id="over-title">Crashed</h2><p id="over-text"></p>
+  <p id="over-score"></p>
+  <button class="btn" id="btn-restart-over">Fly again</button></div>
+</div>
+
+<div id="screen-win" class="overlay hidden">
+  <div class="card"><h2>Route complete!</h2><p id="win-text"></p>
+  <p id="win-score"></p>
+  <button class="btn" id="btn-restart-win">Fly the route again</button></div>
+</div>
+
+<p id="status" role="status" aria-live="polite"></p>
+<script src="./vendor/three.min.js"></script>
+<script type="module" src="./src/main.js"></script>
+</body>
+</html>
